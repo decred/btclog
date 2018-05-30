@@ -1,37 +1,29 @@
 #!/bin/bash
 # The script does automatic checking on a Go package and its sub-packages, including:
 # 1. gofmt         (http://golang.org/cmd/gofmt/)
-# 2. goimports     (https://github.com/bradfitz/goimports)
-# 3. golint        (https://github.com/golang/lint)
-# 4. go vet        (http://golang.org/cmd/vet)
-# 5. race detector (http://blog.golang.org/race-detector)
-# 6. test coverage (http://blog.golang.org/cover)
+# 2. golint        (https://github.com/golang/lint)
+# 3. go vet        (http://golang.org/cmd/vet)
+# 4. gosimple      (https://github.com/dominikh/go-simple)
+# 5. unconvert     (https://github.com/mdempsky/unconvert)
+# 6. ineffassign   (https://github.com/gordonklaus/ineffassign)
 
-set -e
+# gometalinter (github.com/alecthomas/gometalinter) is used to run each each
+# static checker.
 
-# Automatic checks
-test -z $(gofmt -l -w . | tee /dev/stderr)
-test -z $(goimports -l -w . | tee /dev/stderr)
-test -z $(golint ./... | tee /dev/stderr)
-go vet ./...
-env GORACE="halt_on_error=1" go test -v -race ./...
+set -ex
 
-# Run test coverage on each subdirectories and merge the coverage profile.
-
-echo "mode: count" > profile.cov
-
-# Standard go tooling behavior is to ignore dirs with leading underscores.
-for dir in $(find . -maxdepth 10 -not -path './.git*' -not -path '*/_*' -type d)
-do
-if ls $dir/*.go &> /dev/null; then
-  go test -covermode=count -coverprofile=$dir/profile.tmp $dir
-  if [ -f $dir/profile.tmp ]; then
-    cat $dir/profile.tmp | tail -n +2 >> profile.cov
-    rm $dir/profile.tmp
-  fi
+# Make sure gometalinter is installed and $GOPATH/bin is in your path.
+# $ go get -v github.com/alecthomas/gometalinter"
+# $ gometalinter --install"
+if [ ! -x "$(type -p gometalinter)" ]; then
+  exit 1
 fi
-done
 
-# To submit the test coverage result to coveralls.io,
-# use goveralls (https://github.com/mattn/goveralls)
-# goveralls -coverprofile=profile.cov -service=travis-ci
+gometalinter --vendor --disable-all \
+--enable=gofmt \
+--enable=golint \
+--enable=vet \
+--enable=gosimple \
+--enable=unconvert \
+--enable=ineffassign \
+--deadline=4m ./...

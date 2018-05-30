@@ -1,13 +1,11 @@
 language: go
 go:
-  - 1.7.x
-  - 1.8.x
+  - 1.9.x
+  - 1.10.x
 sudo: false
 install:
-  - go get -d -t -v ./...
-  - go get -v golang.org/x/tools/cmd/cover
-  - go get -v github.com/bradfitz/goimports
-  - go get -v github.com/golang/lint/golint
+  - go get -v github.com/alecthomas/gometalinter
+  - gometalinter --install
 script:
   - export PATH=$PATH:$HOME/gopath/bin
   - ./goclean.sh
