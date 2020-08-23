@@ -142,6 +142,7 @@ type Backend struct {
 	w    io.Writer
 	mu   sync.Mutex // ensures atomic writes
 	flag uint32
+	loc  *time.Location
 }
 
 // BackendOption is a function used to modify the behavior of a Backend.
@@ -153,6 +154,14 @@ type BackendOption func(b *Backend)
 func WithFlags(flags uint32) BackendOption {
 	return func(b *Backend) {
 		b.flag = flags
+	}
+}
+
+// WithLocation configures a Backend to use the specified location rather than
+// using the system defaults.
+func WithLocation(loc *time.Location) BackendOption {
+	return func(b *Backend) {
+		b.loc = loc
 	}
 }
 
@@ -265,6 +274,9 @@ func callsite(flag uint32) (string, int) {
 // rules.
 func (b *Backend) print(lvl, tag string, args ...interface{}) {
 	t := time.Now() // get as early as possible
+	if b.loc != nil {
+		t = t.In(b.loc)
+	}
 
 	bytebuf := buffer()
 
@@ -292,6 +304,9 @@ func (b *Backend) print(lvl, tag string, args ...interface{}) {
 // specifier.
 func (b *Backend) printf(lvl, tag string, format string, args ...interface{}) {
 	t := time.Now() // get as early as possible
+	if b.loc != nil {
+		t = t.In(b.loc)
+	}
 
 	bytebuf := buffer()
 
