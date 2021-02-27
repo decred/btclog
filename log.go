@@ -64,6 +64,9 @@ const (
 	// LUTC modifies the logger output to report all times in UTC instead of
 	// in the local time zone.
 	LUTC
+
+	// Lnodatetime suppresses the date and time from the logger output.
+	Lnodatetime
 )
 
 // Read logger flags from the LOGFLAGS environment variable.  Multiple flags can
@@ -77,6 +80,8 @@ func init() {
 			defaultFlags |= Lshortfile
 		case "UTC":
 			defaultFlags |= LUTC
+		case "nodatetime":
+			defaultFlags |= Lnodatetime
 		}
 	}
 }
@@ -208,25 +213,30 @@ func itoa(buf *[]byte, i int, wid int) {
 // Appends a header in the default format 'YYYY-MM-DD hh:mm:ss.sss [LVL] TAG: '.
 // If either of the Lshortfile or Llongfile flags are specified, the file named
 // and line number are included after the tag and before the final colon.
+// If the Lnodatetime flag is specified, the date and time are suppressed.
 func formatHeader(buf *[]byte, t time.Time, lvl, tag string, file string, line int) {
-	year, month, day := t.Date()
-	hour, min, sec := t.Clock()
-	ms := t.Nanosecond() / 1e6
+	if !t.IsZero() {
+		year, month, day := t.Date()
+		hour, min, sec := t.Clock()
+		ms := t.Nanosecond() / 1e6
 
-	itoa(buf, year, 4)
-	*buf = append(*buf, '-')
-	itoa(buf, int(month), 2)
-	*buf = append(*buf, '-')
-	itoa(buf, day, 2)
-	*buf = append(*buf, ' ')
-	itoa(buf, hour, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, min, 2)
-	*buf = append(*buf, ':')
-	itoa(buf, sec, 2)
-	*buf = append(*buf, '.')
-	itoa(buf, ms, 3)
-	*buf = append(*buf, " ["...)
+		itoa(buf, year, 4)
+		*buf = append(*buf, '-')
+		itoa(buf, int(month), 2)
+		*buf = append(*buf, '-')
+		itoa(buf, day, 2)
+		*buf = append(*buf, ' ')
+		itoa(buf, hour, 2)
+		*buf = append(*buf, ':')
+		itoa(buf, min, 2)
+		*buf = append(*buf, ':')
+		itoa(buf, sec, 2)
+		*buf = append(*buf, '.')
+		itoa(buf, ms, 3)
+		*buf = append(*buf, ' ')
+	}
+
+	*buf = append(*buf, '[')
 	*buf = append(*buf, lvl...)
 	*buf = append(*buf, "] "...)
 	*buf = append(*buf, tag...)
@@ -270,9 +280,13 @@ func callsite(flag uint32) (string, int) {
 // function and formatting the provided arguments using the default formatting
 // rules.
 func (b *Backend) print(lvl, tag string, args ...interface{}) {
-	t := time.Now() // get as early as possible
-	if b.flag&LUTC != 0 {
-		t = t.UTC()
+	var t time.Time
+
+	if b.flag&Lnodatetime == 0 {
+		t = time.Now() // get as early as possible
+		if b.flag&LUTC != 0 {
+			t = t.UTC()
+		}
 	}
 
 	bytebuf := buffer()
@@ -300,9 +314,13 @@ func (b *Backend) print(lvl, tag string, args ...interface{}) {
 // function and formatting the provided arguments according to the given format
 // specifier.
 func (b *Backend) printf(lvl, tag string, format string, args ...interface{}) {
-	t := time.Now() // get as early as possible
-	if b.flag&LUTC != 0 {
-		t = t.UTC()
+	var t time.Time
+
+	if b.flag&Lnodatetime == 0 {
+		t = time.Now() // get as early as possible
+		if b.flag&LUTC != 0 {
+			t = t.UTC()
+		}
 	}
 
 	bytebuf := buffer()
